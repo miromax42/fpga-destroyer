@@ -1,0 +1,18 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+ 
+entity test is
+ 
+    Port ( button  : in  std_logic;
+           LED     : out std_logic);
+      
+end test;
+ 
+architecture Behavioral of test is
+ 
+begin
+ 
+ LED <= button;
+  
+end Behavioral;
