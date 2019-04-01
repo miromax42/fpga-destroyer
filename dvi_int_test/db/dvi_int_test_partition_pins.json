@@ -1,0 +1,37 @@
+{
+	"partitions" : [
+		{
+			"name" : "Top",
+			"pins" : [
+				{
+					"name" : "tmds0a",
+					"strict" : false
+				},
+				{
+					"name" : "tmds0b",
+					"strict" : false
+				},
+				{
+					"name" : "tmds1a",
+					"strict" : false
+				},
+				{
+					"name" : "tmds1b",
+					"strict" : false
+				},
+				{
+					"name" : "tmds2a",
+					"strict" : false
+				},
+				{
+					"name" : "tmds2b",
+					"strict" : false
+				},
+				{
+					"name" : "clk50",
+					"strict" : false
+				}
+			]
+		}
+	]
+}

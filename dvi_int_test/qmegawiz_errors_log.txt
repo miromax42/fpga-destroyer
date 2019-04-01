@@ -1,0 +1,25 @@
+
+
+C:/intelFPGA_lite/18.1/projects/dvi_intervention/dvi_int_test/pll25to250.vhd
+
+Mar 28 12AM:12:21>: The following design file, which has identical name but a different extension 
+from the specified variation file, already exists in the working directory:
+
+pll25to250.v
+
+This may create a conflict of design files and/or lead to undesirable side
+effects.
+
+Is it OK to continue file generation?
+
+C:/intelFPGA_lite/18.1/projects/dvi_intervention/dvi_int_test/pll25to250.vhd
+
+Mar 28 12AM:16:52>: The following design file, which has identical name but a different extension 
+from the specified variation file, already exists in the working directory:
+
+pll25to250.v
+
+This may create a conflict of design files and/or lead to undesirable side
+effects.
+
+Is it OK to continue file generation?

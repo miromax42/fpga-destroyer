@@ -1,0 +1,24 @@
+v 3
+file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\dvi_int_test.vhd" "20190330160332.000" "20190331004615.149":
+  entity dvi_int_test at 2( 20) + 0 on 107;
+  architecture arch of dvi_int_test at 17( 605) + 0 on 108;
+file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\control_generator.vhd" "20190330192442.000" "20190331004612.727":
+  entity control_detector at 1( 0) + 0 on 101;
+  architecture arch of control_detector at 34( 1395) + 0 on 102;
+file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\dvi_intervention.vhd" "20190327211456.000" "20190331004630.778":
+  entity dvi_intervention at 1( 0) + 0 on 111;
+  architecture arch of dvi_intervention at 12( 332) + 0 on 112;
+file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\antiserializer.vhd" "20190330155934.000" "20190331004628.584":
+  entity antiserializer at 3( 101) + 0 on 109;
+  architecture rtl of antiserializer at 13( 349) + 0 on 110;
+file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\v01_copypaste.vhd" "20190330160224.000" "20190330220915.847":
+  entity image_generator at 2( 72) + 0 on 83;
+  architecture image_generator of image_generator at 12( 519) + 0 on 84;
+  entity control_generator at 53( 1879) + 0 on 85;
+  architecture control_generator of control_generator at 77( 3083) + 0 on 86;
+  entity tmds_encoder at 148( 5029) + 0 on 87;
+  architecture tmds_encoder of tmds_encoder at 160( 5584) + 0 on 88;
+  entity serializer at 268( 8894) + 0 on 89;
+  architecture serializer of serializer at 277( 9205) + 0 on 90;
+  entity dvi_stripes at 297( 9772) + 0 on 91;
+  architecture dvi of dvi_stripes at 310( 10487) + 0 on 92;

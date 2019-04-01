@@ -1,0 +1,382 @@
+  -----Image generator:-------------------------------------------------
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+----------------------------------------------------------------------
+ENTITY image_generator IS
+	PORT(
+		red_switch, green_switch, blue_switch : IN  STD_LOGIC;
+		Hsync, Vsync, Vactive, dena           : IN  STD_LOGIC;
+		R, G, B                               : OUT STD_LOGIC_VECTOR(7 DOWNTO 0));
+END image_generator;
+----------------------------------------------------------------------
+ARCHITECTURE image_generator OF image_generator IS
+BEGIN
+	PROCESS(Hsync, Vsync, dena, red_switch, green_switch, blue_switch)
+		VARIABLE line_counter : INTEGER RANGE 0 TO 480;
+	BEGIN
+		-----Create pointer to LCD rows:-----
+		IF (Vsync = '0') THEN
+			line_counter := 0;
+		ELSIF (Hsync'EVENT AND Hsync = '1') THEN
+			IF (Vactive = '1') THEN
+				line_counter := line_counter + 1;
+			END IF;
+		END IF;
+		-----Create image:-------------------
+		IF (dena = '1') THEN
+			IF (line_counter = 1) THEN
+				R <= (OTHERS => '1');
+				G <= (OTHERS => '0');
+				B <= (OTHERS => '0');
+			ELSIF (line_counter = 2 OR line_counter = 3) THEN
+				R <= (OTHERS => '0');
+				G <= (OTHERS => '1');
+				B <= (OTHERS => '0');
+			ELSIF (line_counter > 3 AND line_counter <= 6) THEN
+				R <= (OTHERS => '0');
+				G <= (OTHERS => '0');
+				B <= (OTHERS => '1');
+			ELSE
+				R <= (OTHERS => red_switch);
+				G <= (OTHERS => green_switch);
+				B <= (OTHERS => blue_switch);
+			END IF;
+		ELSE
+			R <= (OTHERS => '0');
+			G <= (OTHERS => '0');
+			B <= (OTHERS => '0');
+		END IF;
+	END PROCESS;
+END image_generator;
+----------------------------------------------------------------------
+-----Control generator:--------------------------------------
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+-------------------------------------------------------------
+ENTITY control_generator IS
+	GENERIC(
+		Ha : INTEGER := 96;             --Hpulse
+		Hb : INTEGER := 144;            --Hpulse+HBP
+		Hc : INTEGER := 784;            --Hpulse+HBP+Hactive
+		Hd : INTEGER := 800;            --Hpulse+HBP+Hactive+HFP
+		Va : INTEGER := 2;              --Vpulse
+		Vb : INTEGER := 35;             --Vpulse+VBP
+		Vc : INTEGER := 515;            --Vpulse+VBP+Vactive
+		Vd : INTEGER := 525);           --Vpulse+VBP+Vactive+VFP
+	PORT(
+		clk50   : IN     STD_LOGIC;     --System clock (50MHz)
+		clk25   : BUFFER STD_LOGIC;     --TMDS clock (25MHz)
+		clk250  : BUFFER STD_LOGIC;     --Tx clock (250MHz)
+		Hsync   : BUFFER STD_LOGIC;     --Horizontal sync
+		Vsync   : OUT    STD_LOGIC;     --Vertical sync
+		Hactive : BUFFER STD_LOGIC;     --Active portion of Hsync
+		Vactive : BUFFER STD_LOGIC;     --Active portion of Vsync
+		dena    : OUT    STD_LOGIC);    --Display enable
+END control_generator;
+-------------------------------------------------------------
+ARCHITECTURE control_generator OF control_generator IS
+	COMPONENT altera_pll IS
+		PORT(
+			areset : IN  STD_LOGIC;
+			inclk0 : IN  STD_LOGIC;
+			c0     : OUT STD_LOGIC;
+			locked : OUT STD_LOGIC);
+	END COMPONENT;
+BEGIN
+	-----Generation of clk250:-------------
+	pll : altera_pll PORT MAP('0', clk50, clk250, OPEN);
+	-----Generation of clk25:--------------
+	---Option 1: From clk50
+	PROCESS(clk50)
+	BEGIN
+		IF (clk50'EVENT AND clk50 = '1') THEN
+			clk25 <= NOT clk25;
+		END IF;
+	END PROCESS;
+	---Option 2: From clk250
+	--PROCESS (clk250)
+	-- VARIABLE count: INTEGER RANGE 0 TO 5;
+	--BEGIN
+	-- IF (clk250'EVENT AND clk250='1') THEN
+	-- count := count + 1;
+	-- IF (count=5) THEN
+	-- clk25 <= NOT clk25;
+	-- count := 0;
+	-- END IF;
+	-- END IF;
+	--END PROCESS;
+	---Horizontal signals generation:----
+	PROCESS(clk25)
+		VARIABLE Hcount : INTEGER RANGE 0 TO Hd;
+	BEGIN
+		IF (clk25'EVENT AND clk25 = '1') THEN
+			Hcount := Hcount + 1;
+			IF (Hcount = Ha) THEN
+				Hsync <= '1';
+			ELSIF (Hcount = Hb) THEN
+				Hactive <= '1';
+			ELSIF (Hcount = Hc) THEN
+				Hactive <= '0';
+			ELSIF (Hcount = Hd) THEN
+				Hsync  <= '0';
+				Hcount := 0;
+			END IF;
+		END IF;
+	END PROCESS;
+	-----Vertical signals generation:------
+	PROCESS(Hsync)
+		VARIABLE Vcount : INTEGER RANGE 0 TO Vd;
+	BEGIN
+		IF (Hsync'EVENT AND Hsync = '0') THEN
+			Vcount := Vcount + 1;
+			IF (Vcount = Va) THEN
+				Vsync <= '1';
+			ELSIF (Vcount = Vb) THEN
+				Vactive <= '1';
+			ELSIF (Vcount = Vc) THEN
+				Vactive <= '0';
+			ELSIF (Vcount = Vd) THEN
+				Vsync  <= '0';
+				Vcount := 0;
+			END IF;
+		END IF;
+	END PROCESS;
+	-----Display-enable generation:--------
+	dena <= Hactive AND Vactive;
+END control_generator;
+-------------------------------------------------------------
+
+-----TMDS encoder:------------------------------------------------
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+------------------------------------------------------------------
+ENTITY tmds_encoder IS
+	PORT(
+		din     : IN  STD_LOGIC_VECTOR(7 DOWNTO 0); --pixel data
+		control : IN  STD_LOGIC_VECTOR(1 DOWNTO 0); --control data
+		clk25   : IN  STD_LOGIC;        --clock
+		dena    : IN  STD_LOGIC;        --display enable
+		dout    : OUT STD_LOGIC_VECTOR(9 DOWNTO 0)); --output data
+END tmds_encoder;
+------------------------------------------------------------------
+ARCHITECTURE tmds_encoder OF tmds_encoder IS
+	SIGNAL x     : STD_LOGIC_VECTOR(8 DOWNTO 0); --internal vector
+	SIGNAL onesX : INTEGER RANGE 0 TO 8; --# of '1's in x
+	SIGNAL onesD : INTEGER RANGE 0 TO 8; --# of '1's in din
+	SIGNAL disp  : INTEGER RANGE -16 TO 15; --disparity
+BEGIN
+	-----Computes number of '1's in din:--------
+	PROCESS(din)
+		VARIABLE counterD : INTEGER RANGE 0 TO 8;
+	BEGIN
+		counterD := 0;
+		FOR i IN 0 TO 7 LOOP
+			IF (din(i) = '1') THEN
+				counterD := counterD + 1;
+			END IF;
+		END LOOP;
+		onesD    <= counterD;
+	END PROCESS;
+	-----Produces the internal vector x:-------
+	PROCESS(din, onesD)
+	BEGIN
+		x(0) <= din(0);
+		IF (onesD > 4 OR (onesD = 4 AND din(0) = '0')) THEN
+			x(1) <= din(1) XNOR x(0);
+			x(2) <= din(2) XNOR x(1);
+			x(3) <= din(3) XNOR x(2);
+			x(4) <= din(4) XNOR x(3);
+			x(5) <= din(5) XNOR x(4);
+			x(6) <= din(6) XNOR x(5);
+			x(7) <= din(7) XNOR x(6);
+			x(8) <= '0';
+		ELSE
+			x(1) <= din(1) XOR x(0);
+			x(2) <= din(2) XOR x(1);
+			x(3) <= din(3) XOR x(2);
+			x(4) <= din(4) XOR x(3);
+			x(5) <= din(5) XOR x(4);
+			x(6) <= din(6) XOR x(5);
+			x(7) <= din(7) XOR x(6);
+			x(8) <= '1';
+		END IF;
+	END PROCESS;
+	-----Computes the number of '1's in x:-----
+	PROCESS(x)
+		VARIABLE counterX : INTEGER RANGE 0 TO 8;
+	BEGIN
+		counterX := 0;
+		FOR i IN 0 TO 7 LOOP
+			IF (x(i) = '1') THEN
+				counterX := counterX + 1;
+			END IF;
+		END LOOP;
+		onesX    <= counterX;
+	END PROCESS;
+	-----Produces output vector and new disparity:--
+	PROCESS(disp, x, onesX, dena, control, clk25)
+		VARIABLE disp_new : INTEGER RANGE -31 TO 31;
+	BEGIN
+		IF (dena = '1') THEN
+			dout(8) <= x(8);
+			IF (disp = 0 OR onesX = 4) THEN
+				dout(9) <= NOT x(8);
+				IF (x(8) = '0') THEN
+					dout(7 DOWNTO 0) <= NOT x(7 DOWNTO 0);
+					disp_new         := disp - 2 * onesX + 8;
+				ELSE
+					dout(7 DOWNTO 0) <= x(7 DOWNTO 0);
+					disp_new         := disp + 2 * onesX - 8;
+				END IF;
+			ELSE
+				IF ((disp > 0 AND onesX > 4) OR (disp < 0 AND onesX < 4)) THEN
+					dout(9)          <= '1';
+					dout(7 DOWNTO 0) <= NOT x(7 DOWNTO 0);
+					IF (x(8) = '0') THEN
+						disp_new := disp - 2 * onesX + 8;
+					ELSE
+						disp_new := disp - 2 * onesX + 10;
+					END IF;
+				ELSE
+					dout(9)          <= '0';
+					dout(7 DOWNTO 0) <= x(7 DOWNTO 0);
+					IF (x(8) = '0') THEN
+						disp_new := disp + 2 * onesX - 10;
+					ELSE
+						disp_new := disp + 2 * onesX - 8;
+					END IF;
+				END IF;
+			END IF;
+		ELSE
+			disp_new := 0;
+			IF (control = "00") THEN
+				dout <= "1101010100";
+			ELSIF (control = "01") THEN
+				dout <= "0010101011";
+			ELSIF (control = "10") THEN
+				dout <= "0101010100";
+			ELSE
+				dout <= "1010101011";
+			END IF;
+		END IF;
+		IF (clk25'EVENT AND clk25 = '1') THEN
+			disp <= disp_new;
+		END IF;
+	END PROCESS;
+END tmds_encoder;
+------------------------------------------------------------------
+
+-----Serializer:---------------------------------
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+-------------------------------------------------
+ENTITY serializer IS
+	PORT(clk250 : IN  STD_LOGIC;
+	     din    : IN  STD_LOGIC_VECTOR(9 DOWNTO 0);
+	     dout   : OUT STD_LOGIC);
+END serializer;
+-------------------------------------------------
+ARCHITECTURE serializer OF serializer IS
+	SIGNAL internal : STD_LOGIC_VECTOR(9 DOWNTO 0);
+BEGIN
+	PROCESS(clk250)
+		VARIABLE count : INTEGER RANGE 0 TO 10;
+	BEGIN
+		IF (clk250'EVENT AND clk250 = '1') THEN
+			count := count + 1;
+			IF (count = 9) THEN
+				internal <= din;
+			ELSIF (count = 10) THEN
+				count := 0;
+			END IF;
+			dout  <= internal(count);
+		END IF;
+	END PROCESS;
+END serializer;
+-------------------------------------------------
+
+-----Main code:------------------------------------------------------
+LIBRARY ieee;
+USE ieee.std_logic_1164.all;
+---------------------------------------------------------------------
+ENTITY dvi_stripes IS
+	PORT(
+		clk50                                 : IN     STD_LOGIC; --50MHz system clock
+		red_switch, green_switch, blue_switch : IN     STD_LOGIC;
+		tmds0a, tmds0b                        : BUFFER STD_LOGIC; --TMDS0+, TMDS0-
+		tmds1a, tmds1b                        : BUFFER STD_LOGIC; --TMDS1+, TMDS1-
+		tmds2a, tmds2b                        : BUFFER STD_LOGIC; --TMDS2+, TMDS2-
+		tmds_clka, tmds_clkb                  : OUT    STD_LOGIC); --TMDS_clk+,TMDS_clk-
+END dvi_stripes;
+---------------------------------------------------------------------
+ARCHITECTURE dvi OF dvi_stripes IS
+	-----Signal declarations:--------------
+	SIGNAL clk25, clk250                        : STD_LOGIC;
+	SIGNAL Hsync, Vsync, Hactive, Vactive, dena : STD_LOGIC;
+	SIGNAL R, G, B                              : STD_LOGIC_VECTOR(7 DOWNTO 0);
+	SIGNAL control0, control1, control2         : STD_LOGIC_VECTOR(1 DOWNTO 0);
+	SIGNAL data0, data1, data2                  : STD_LOGIC_VECTOR(9 DOWNTO 0);
+	-----1st component declaration:--------
+	COMPONENT image_generator IS
+		PORT(
+			red_switch, green_switch, blue_switch : IN  STD_LOGIC;
+			Hsync, Vsync, Vactive, dena           : IN  STD_LOGIC;
+			R, G, B                               : OUT STD_LOGIC_VECTOR(7 DOWNTO 0));
+	END COMPONENT;
+	-----2nd component declaration:--------
+	COMPONENT control_generator IS
+		PORT(
+			clk50   : IN     STD_LOGIC;
+			clk25   : BUFFER STD_LOGIC;
+			clk250  : OUT    STD_LOGIC;
+			Hsync   : BUFFER STD_LOGIC;
+			Vsync   : OUT    STD_LOGIC;
+			Hactive : BUFFER STD_LOGIC;
+			Vactive : BUFFER STD_LOGIC;
+			dena    : OUT    STD_LOGIC);
+	END COMPONENT;
+	-----3rd component declaration:--------
+	COMPONENT tmds_encoder IS
+		PORT(
+			din     : IN  STD_LOGIC_VECTOR(7 DOWNTO 0);
+			control : IN  STD_LOGIC_VECTOR(1 DOWNTO 0);
+			clk25   : IN  STD_LOGIC;
+			dena    : IN  STD_LOGIC;
+			dout    : OUT STD_LOGIC_VECTOR(9 DOWNTO 0));
+	END COMPONENT;
+	-----4th component declaration:--------
+	COMPONENT serializer IS
+		PORT(
+			clk250 : IN  STD_LOGIC;
+			din    : IN  STD_LOGIC_VECTOR(9 DOWNTO 0);
+			dout   : OUT STD_LOGIC);
+	END COMPONENT;
+	---------------------------------------
+BEGIN
+	control0  <= Vsync & Hsync;
+	control1  <= "00";
+	control2  <= "00";
+	-----Image generator:------------------
+	image_gen : image_generator
+		PORT MAP(
+			red_switch, green_switch, blue_switch, Hsync, Vsync,
+			Vactive, dena, R, G, B);
+	-----Control generator:----------------
+	control_gen : control_generator
+		PORT MAP(
+			clk50, clk25, clk250, Hsync, Vsync, OPEN, Vactive, dena);
+	-----TMDS transmitter:-----------------
+	tmds0 : tmds_encoder PORT MAP(B, control0, clk25, dena, data0);
+	tmds1 : tmds_encoder PORT MAP(G, control1, clk25, dena, data1);
+	tmds2 : tmds_encoder PORT MAP(R, control2, clk25, dena, data2);
+	serial0 : serializer PORT MAP(clk250, data0, tmds0a);
+	serial1 : serializer PORT MAP(clk250, data1, tmds1a);
+	serial2 : serializer PORT MAP(clk250, data2, tmds2a);
+	tmds0b    <= NOT tmds0a;
+	tmds1b    <= NOT tmds1a;
+	tmds2b    <= NOT tmds2a;
+	tmds_clka <= clk25;
+	tmds_clkb <= NOT clk25;
+END dvi;
+---------------------------------------------------------------------
+
