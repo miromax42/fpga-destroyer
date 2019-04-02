@@ -1,7 +1,4 @@
 v 3
-file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\dvi_int_test.vhd" "20190330160332.000" "20190331004615.149":
-  entity dvi_int_test at 2( 20) + 0 on 107;
-  architecture arch of dvi_int_test at 17( 605) + 0 on 108;
 file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\control_generator.vhd" "20190330192442.000" "20190331004612.727":
   entity control_detector at 1( 0) + 0 on 101;
   architecture arch of control_detector at 34( 1395) + 0 on 102;
@@ -22,3 +19,6 @@ file . "C:\intelFPGA_lite\18.1\projects\dvi_int_test\v01_copypaste.vhd" "2019033
   architecture serializer of serializer at 277( 9205) + 0 on 90;
   entity dvi_stripes at 297( 9772) + 0 on 91;
   architecture dvi of dvi_stripes at 310( 10487) + 0 on 92;
+file . "C:\Users\User\Documents\_GITHUB\fpga-destroyer\dvi_int_test\dvi_int_test.vhd" "20190402170738.000" "20190402200738.949":
+  entity dvi_int_test at 2( 20) + 0 on 115;
+  architecture arch of dvi_int_test at 17( 605) + 0 on 116;
